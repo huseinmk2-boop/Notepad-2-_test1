@@ -1,0 +1,439 @@
+import tkinter as tk
+import random
+import math
+
+
+class BlackHoleTwist:
+
+    def __init__(
+        self,
+        overlay_frame,
+        finish_callback,
+        retry_callback
+    ):
+
+        self.overlay_frame = overlay_frame
+        self.finish_callback = finish_callback
+        self.retry_callback = retry_callback
+
+        self.overlay_frame.place(
+            relx=0,
+            rely=0,
+            relwidth=1,
+            relheight=1
+        )
+
+        self.canvas = tk.Canvas(
+            self.overlay_frame,
+            bg="#3d6db5",
+            highlightthickness=0
+        )
+
+        self.canvas.pack(
+            fill="both",
+            expand=True
+        )
+
+        self.canvas.update()
+
+        self.width = self.canvas.winfo_width()
+        self.height = self.canvas.winfo_height()
+
+        self.game_over = False
+
+        # ==================
+        # PLAYER
+        # ==================
+
+        self.player_speed = 4
+
+        direction = random.choice(
+            [
+                "right",
+                "left",
+                "top",
+                "bottom"
+            ]
+        )
+
+        self.direction = direction
+
+        # ==================
+        # SPAWNS
+        # ==================
+
+        if direction == "right":
+
+            self.player_x = 100
+            self.player_y = self.height / 2
+
+            self.hole_x = self.width / 2
+            self.hole_y = self.height / 2
+
+            self.create_vertical_finish(
+                self.width - 40
+            )
+
+        elif direction == "left":
+
+            self.player_x = self.width - 100
+            self.player_y = self.height / 2
+
+            self.hole_x = self.width / 2
+            self.hole_y = self.height / 2
+
+            self.create_vertical_finish(
+                0
+            )
+
+        elif direction == "top":
+
+            self.player_x = self.width / 2
+            self.player_y = self.height - 100
+
+            self.hole_x = self.width / 2
+            self.hole_y = self.height / 2
+
+            self.create_horizontal_finish(
+                0
+            )
+
+        else:
+
+            self.player_x = self.width / 2
+            self.player_y = 100
+
+            self.hole_x = self.width / 2
+            self.hole_y = self.height / 2
+
+            self.create_horizontal_finish(
+                self.height - 40
+            )
+
+        # ==================
+        # PLAYER
+        # ==================
+
+        self.player = self.canvas.create_oval(
+            self.player_x - 15,
+            self.player_y - 15,
+            self.player_x + 15,
+            self.player_y + 15,
+            fill="yellow"
+        )
+
+        self.player_label = (
+            self.canvas.create_text(
+                self.player_x,
+                self.player_y - 25,
+                text="YOU",
+                fill="white",
+                font=("Arial", 10, "bold")
+            )
+        )
+
+        # ==================
+        # BLACK HOLE
+        # ==================
+
+        self.hole_radius = 40
+
+        self.black_hole = self.canvas.create_oval(
+            self.hole_x - self.hole_radius,
+            self.hole_y - self.hole_radius,
+            self.hole_x + self.hole_radius,
+            self.hole_y + self.hole_radius,
+            fill="black",
+            outline="black"
+        )
+
+        # ==================
+        # VIRTUAL JOYSTICK
+        # ==================
+
+        self.mouse_x = self.width / 2
+        self.mouse_y = self.height / 2
+
+        self.canvas.bind(
+            "<Motion>",
+            self.mouse_moved
+        )
+
+        self.move_player()
+        self.expand_black_hole()
+
+        print(
+            f"Black Hole direction: {direction}"
+        )
+
+    # ==================
+    # FINISH LINE
+    # ==================
+
+    def create_vertical_finish(
+        self,
+        x
+    ):
+
+        size = 20
+
+        for y in range(
+            0,
+            self.height,
+            size
+        ):
+
+            for col in range(2):
+
+                color = (
+                    "white"
+                    if
+                    (y // size + col) % 2 == 0
+                    else
+                    "black"
+                )
+
+                self.canvas.create_rectangle(
+                    x + col * size,
+                    y,
+                    x + (col + 1) * size,
+                    y + size,
+                    fill=color,
+                    outline=color
+                )
+
+    def create_horizontal_finish(
+        self,
+        y
+    ):
+
+        size = 20
+
+        for x in range(
+            0,
+            self.width,
+            size
+        ):
+
+            for row in range(2):
+
+                color = (
+                    "white"
+                    if
+                    (x // size + row) % 2 == 0
+                    else
+                    "black"
+                )
+
+                self.canvas.create_rectangle(
+                    x,
+                    y + row * size,
+                    x + size,
+                    y + (row + 1) * size,
+                    fill=color,
+                    outline=color
+                )
+
+    # ==================
+    # MOUSE
+    # ==================
+
+    def mouse_moved(
+        self,
+        event
+    ):
+
+        self.mouse_x = event.x
+        self.mouse_y = event.y
+
+    # ==================
+    # PLAYER MOVEMENT
+    # ==================
+
+    def move_player(self):
+
+        if self.game_over:
+            return
+
+        center_x = self.width / 2
+        center_y = self.height / 2
+
+        dx = (
+            self.mouse_x
+            - center_x
+        )
+
+        dy = (
+            self.mouse_y
+            - center_y
+        )
+
+        self.player_x += dx * 0.01
+        self.player_y += dy * 0.01
+
+        self.player_x = max(
+            15,
+            min(
+                self.width - 15,
+                self.player_x
+            )
+        )
+
+        self.player_y = max(
+            15,
+            min(
+                self.height - 15,
+                self.player_y
+            )
+        )
+
+        self.canvas.coords(
+            self.player,
+            self.player_x - 15,
+            self.player_y - 15,
+            self.player_x + 15,
+            self.player_y + 15
+        )
+
+        self.canvas.coords(
+            self.player_label,
+            self.player_x,
+            self.player_y - 25
+        )
+
+        self.check_finish()
+        self.check_black_hole()
+
+        self.canvas.after(
+            16,
+            self.move_player
+        )
+
+    # ==================
+    # BLACK HOLE
+    # ==================
+
+    def expand_black_hole(self):
+
+        if self.game_over:
+            return
+
+        self.hole_radius += 0.50
+
+        self.canvas.coords(
+            self.black_hole,
+            self.hole_x - self.hole_radius,
+            self.hole_y - self.hole_radius,
+            self.hole_x + self.hole_radius,
+            self.hole_y + self.hole_radius
+        )
+
+        self.canvas.after(
+            16,
+            self.expand_black_hole
+        )
+
+    def check_black_hole(self):
+
+        distance = math.sqrt(
+            (self.player_x - self.hole_x) ** 2
+            +
+            (self.player_y - self.hole_y) ** 2
+        )
+
+        if distance <= self.hole_radius:
+
+            self.display_game_over()
+
+    # ==================
+    # WIN
+    # ==================
+
+    def check_finish(self):
+
+        if self.direction == "right":
+
+            if self.player_x >= self.width - 40:
+                self.win()
+
+        elif self.direction == "left":
+
+            if self.player_x <= 40:
+                self.win()
+
+        elif self.direction == "top":
+
+            if self.player_y <= 40:
+                self.win()
+
+        elif self.direction == "bottom":
+
+            if self.player_y >= self.height - 40:
+                self.win()
+
+    def win(self):
+
+        self.game_over = True
+
+        for widget in (
+            self.overlay_frame.winfo_children()
+        ):
+            widget.destroy()
+
+        self.finish_callback()
+
+    # ==================
+    # LOSE
+    # ==================
+
+    def display_game_over(self):
+        
+        if self.game_over:
+            return
+        
+        self.game_over = True
+
+        for widget in (
+            self.overlay_frame.winfo_children()
+        ):
+            widget.destroy()
+
+        label = tk.Label(
+            self.overlay_frame,
+            text="CONSUMED BY THE BLACK HOLE\n\n" "[R] Retry",
+            font=("Arial", 24, "bold"),
+            bg="#3d6db5",
+            fg="yellow"
+        )
+
+        label.place(
+            relx=0.5,
+            rely=0.5,
+            anchor="center"
+        )
+        
+        self.overlay_frame.bind_all(
+            "<r>",
+            self.retry
+        )
+
+        self.overlay_frame.bind_all(
+            "<R>",
+            self.retry
+        )
+        
+    def retry(
+        self,
+        event=None
+    ):
+
+        self.overlay_frame.unbind_all(
+            "<r>"
+        )
+
+        self.overlay_frame.unbind_all(
+            "<R>"
+        )
+
+        self.retry_callback()
+        
