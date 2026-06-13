@@ -1,4 +1,6 @@
 import tkinter as tk
+from dotenv import load_dotenv
+load_dotenv()
 
 from view.main_view import MainView
 from controller.twist_manager import TwistManager

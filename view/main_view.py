@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from tkinter import font as tkfont
+import threading
+
+from utils import gemini_client
 
 from twists.teleport_button import TeleportButtonTwist
 from twists.bloodmoon import BloodmoonTwist
@@ -282,6 +285,34 @@ class MainView:
         menu_bar.add_cascade(
             label="Format",
             menu=format_menu
+        )
+
+        # ---------------- AI menu (Gemini) ----------------
+        ai_menu = tk.Menu(menu_bar, tearoff=0)
+
+        ai_menu.add_command(
+            label="Rewrite Selection",
+            command=lambda: self.run_ai_action("rewrite")
+        )
+
+        ai_menu.add_command(
+            label="Summarize",
+            command=lambda: self.run_ai_action("summarize")
+        )
+
+        ai_menu.add_command(
+            label="Translate to English",
+            command=lambda: self.run_ai_action("translate")
+        )
+
+        ai_menu.add_command(
+            label="Continue Writing",
+            command=lambda: self.run_ai_action("continue")
+        )
+
+        menu_bar.add_cascade(
+            label="AI",
+            menu=ai_menu
         )
 
         self.root.config(menu=menu_bar)
@@ -866,6 +897,137 @@ class MainView:
             )
         except tk.TclError:
             pass
+
+    # ==========================================================
+    # AI ACTIONS (Gemini)
+    # ==========================================================
+
+    def run_ai_action(self, action):
+
+        if not gemini_client.is_available():
+
+            messagebox.showwarning(
+                "AI Feature Unavailable",
+                "Gemini belum dikonfigurasi.\n\n"
+                "Install: pip install google-generativeai\n"
+                "Lalu set environment variable GEMINI_API_KEY."
+            )
+
+            return
+
+        # Ambil teks yang relevan: selection jika ada, kalau tidak seluruh isi
+        try:
+            text = self.text_area.get("sel.first", "sel.last")
+            has_selection = True
+        except tk.TclError:
+            text = self.text_area.get("1.0", "end-1c")
+            has_selection = False
+
+        if not text.strip():
+
+            messagebox.showinfo(
+                "AI",
+                "Tidak ada teks untuk diproses."
+            )
+
+            return
+
+        self.status_label.config(text="AI is thinking...")
+
+        thread = threading.Thread(
+            target=self._ai_worker,
+            args=(action, text, has_selection),
+            daemon=True
+        )
+
+        thread.start()
+
+    def _ai_worker(self, action, text, has_selection):
+
+        if action == "rewrite":
+            result = gemini_client.rewrite_text(text)
+        elif action == "summarize":
+            result = gemini_client.summarize_text(text)
+        elif action == "translate":
+            result = gemini_client.translate_text(text, "English")
+        elif action == "continue":
+            result = gemini_client.continue_text(text)
+        else:
+            result = None
+
+        # Kembali ke main thread sebelum menyentuh widget Tkinter
+        self.root.after(
+            0,
+            lambda: self._ai_apply_result(action, result, has_selection)
+        )
+
+    def _ai_apply_result(self, action, result, has_selection):
+
+        completed = self.twist_manager.completed_twists
+        self.update_twist_progress(completed)
+
+        if result is None:
+
+            messagebox.showerror(
+                "AI Error",
+                "Gagal mendapatkan respons dari Gemini. Cek koneksi / API key."
+            )
+
+            return
+
+        if action == "rewrite" and has_selection:
+
+            # Ganti teks yang diseleksi dengan hasil rewrite
+            self.text_area.delete("sel.first", "sel.last")
+            self.text_area.insert("insert", result)
+
+        elif action == "continue":
+
+            # Tambahkan lanjutan di akhir dokumen
+            self.text_area.insert("end", " " + result)
+
+        else:
+
+            # Summarize / Translate / Rewrite tanpa selection
+            # -> tampilkan hasil dalam dialog (tidak mengubah teks asli)
+            self.show_ai_result_dialog(action, result)
+
+    def show_ai_result_dialog(self, action, result):
+
+        titles = {
+            "rewrite": "Rewritten Text",
+            "summarize": "Summary",
+            "translate": "Translation",
+            "continue": "Continuation"
+        }
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title(titles.get(action, "AI Result"))
+        dialog.geometry("400x300")
+        dialog.transient(self.root)
+
+        text_widget = tk.Text(dialog, wrap="word")
+        text_widget.pack(expand=True, fill="both", padx=10, pady=10)
+        text_widget.insert("1.0", result)
+
+        button_frame = tk.Frame(dialog)
+        button_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+        def insert_into_notepad():
+            self.text_area.insert("insert", result)
+            dialog.destroy()
+
+        tk.Button(
+            button_frame,
+            text="Insert into Notepad",
+            command=insert_into_notepad
+        ).pack(side="left")
+
+        tk.Button(
+            button_frame,
+            text="Close",
+            command=dialog.destroy
+        ).pack(side="right")
 
     # ==========================================================
     # TWIST / GAME LOGIC (unchanged)
