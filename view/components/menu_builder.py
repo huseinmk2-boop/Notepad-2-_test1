@@ -1,5 +1,7 @@
 import tkinter as tk
 
+from utils.excuse_generator import get_all_categories
+
 
 class MenuBuilderMixin:
     """
@@ -14,6 +16,7 @@ class MenuBuilderMixin:
         menu_bar.add_cascade(label="Edit",   menu=self._build_edit_menu(menu_bar))
         menu_bar.add_cascade(label="Format", menu=self._build_format_menu(menu_bar))
         menu_bar.add_cascade(label="AI",     menu=self._build_ai_menu(menu_bar))
+        menu_bar.add_cascade(label="Excuse", menu=self._build_excuse_menu(menu_bar))
 
         self.root.config(menu=menu_bar)
         self._bind_shortcuts()
@@ -61,6 +64,38 @@ class MenuBuilderMixin:
         m.add_command(label="Summarize",           command=lambda: self.run_ai_action("summarize"))
         m.add_command(label="Translate to English",command=lambda: self.run_ai_action("translate"))
         m.add_command(label="Continue Writing",    command=lambda: self.run_ai_action("continue"))
+        return m
+
+    def _build_excuse_menu(self, parent: tk.Menu) -> tk.Menu:
+        if not hasattr(self, "excuse_category_var"):
+            self.excuse_category_var = tk.StringVar(value="auto")
+
+        if not hasattr(self, "excuse_tone_var"):
+            self.excuse_tone_var = tk.StringVar(value="normal")
+
+        m = tk.Menu(parent, tearoff=0)
+
+        category_menu = tk.Menu(m, tearoff=0)
+        for category in ["auto"] + get_all_categories():
+            category_menu.add_radiobutton(
+                label=category,
+                variable=self.excuse_category_var,
+                value=category,
+            )
+
+        tone_menu = tk.Menu(m, tearoff=0)
+        for tone in ("normal", "serious", "absurd"):
+            tone_menu.add_radiobutton(
+                label=tone,
+                variable=self.excuse_tone_var,
+                value=tone,
+            )
+
+        m.add_cascade(label="Category", menu=category_menu)
+        m.add_cascade(label="Tone", menu=tone_menu)
+        m.add_separator()
+        m.add_command(label="Generate Excuse", command=self.generate_excuse)
+
         return m
 
     # ------------------------------------------------------------------

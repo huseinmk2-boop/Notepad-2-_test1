@@ -1,4 +1,7 @@
 import random
+import time
+
+from utils import gemini_client
 
 _EXCUSES = {
     "macet": [
@@ -62,3 +65,64 @@ def get_excuse_by_category(category: str) -> str:
 
 def get_all_categories() -> list[str]:
     return list(_EXCUSES.keys())
+
+
+def _get_tone_instruction(tone: str) -> str:
+    tone_instructions = {
+        "serious": (
+            "Gunakan nada serius, profesional, dan sopan. "
+            "Jangan bercanda; excuse harus terdengar paling aman dipakai."
+        ),
+        "normal": (
+            "Gunakan nada normal: masuk akal, sopan, dan tambahkan humor "
+            "ringan yang natural sebagai bumbu kecil."
+        ),
+        "absurd": (
+            "Gunakan nada absurd dan lucu, tetapi tetap tulis sebagai satu "
+            "excuse yang bisa dibaca manusia. Boleh aneh, jangan kasar."
+        ),
+    }
+
+    return tone_instructions.get(tone, tone_instructions["normal"])
+
+
+def generate_ai_excuse(
+    category: str = "auto",
+    tone: str = "normal",
+    context: str = "",
+) -> str | None:
+    variation_seed = f"{time.time_ns()}-{random.randint(1000, 9999)}"
+
+    category_instruction = (
+        "Pilih gaya excuse yang paling cocok."
+        if category == "auto"
+        else f"Gunakan gaya kategori '{category}'."
+    )
+
+    context = context.strip()
+    context_instruction = (
+        f"Konteks tulisan user:\n{context[:1200]}\n\n"
+        if context
+        else "Tidak ada konteks khusus dari user.\n\n"
+    )
+
+    tone_instruction = _get_tone_instruction(tone)
+
+    prompt = (
+        "Buat SATU excuse singkat dalam Bahasa Indonesia untuk alasan "
+        "terlambat, belum mengerjakan tugas, atau butuh waktu tambahan. "
+        "Jangan menyalahkan kelompok tertentu dan jangan tambahkan "
+        "penjelasan. Hanya kembalikan kalimat excuse-nya saja. "
+        "Buat jawaban yang berbeda dari request sebelumnya.\n\n"
+        f"{category_instruction}\n"
+        f"Tone: {tone}\n"
+        f"{tone_instruction}\n"
+        f"Variation seed: {variation_seed}\n"
+        f"{context_instruction}"
+    )
+
+    return gemini_client.generate_text(
+        prompt,
+        max_output_tokens=256,
+        temperature=0.9,
+    )

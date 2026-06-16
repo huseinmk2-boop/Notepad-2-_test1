@@ -8,6 +8,7 @@ from view.components import (
     FindReplaceMixin,
     FormatActionsMixin,
     AIActionsMixin,
+    ExcuseActionsMixin,
     TwistOrchestratorMixin,
 )
 
@@ -19,6 +20,7 @@ class MainView(
     FindReplaceMixin,
     FormatActionsMixin,
     AIActionsMixin,
+    ExcuseActionsMixin,
     TwistOrchestratorMixin,
 ):
     """

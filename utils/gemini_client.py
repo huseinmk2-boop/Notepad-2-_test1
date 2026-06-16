@@ -63,7 +63,23 @@ def is_available():
     return _get_client() is not None
 
 
-def generate_text(prompt, max_output_tokens=512):
+def _build_generation_config(max_output_tokens, temperature=None):
+    config = {
+        "max_output_tokens": max_output_tokens,
+    }
+
+    if temperature is not None:
+        config["temperature"] = temperature
+
+    thinking_config = getattr(genai_types, "ThinkingConfig", None)
+
+    if thinking_config is not None:
+        config["thinking_config"] = thinking_config(thinking_budget=0)
+
+    return genai_types.GenerateContentConfig(**config)
+
+
+def generate_text(prompt, max_output_tokens=512, temperature=None):
     """
     Kirim prompt ke Gemini dan kembalikan teks hasil.
     Mengembalikan None jika Gemini tidak tersedia / terjadi error.
@@ -79,10 +95,11 @@ def generate_text(prompt, max_output_tokens=512):
         response = client.models.generate_content(
             model=_MODEL_NAME,
             contents=prompt,
-            config=genai_types.GenerateContentConfig(
-                max_output_tokens=max_output_tokens
-            )
+            config=_build_generation_config(max_output_tokens, temperature)
         )
+
+        if not response.text:
+            return None
 
         return response.text.strip()
 
