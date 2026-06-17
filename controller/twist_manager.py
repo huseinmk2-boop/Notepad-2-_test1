@@ -4,7 +4,9 @@ import random
 class TwistManager:
     """
     Single source of truth untuk state game.
-    Menggantikan GameController + GameModel yang sebelumnya redundant.
+    Twist berjalan looping selamanya — setiap kali satu twist selesai,
+    twist baru (full random, boleh berulang) dan trigger point baru
+    (random) langsung disiapkan.
     """
 
     AVAILABLE_TWISTS = [
@@ -33,49 +35,54 @@ class TwistManager:
         ),
     }
 
-    # Berapa twist yang harus diselesaikan dalam satu sesi
-    REQUIRED_TWISTS = 3
+    # Range jarak antar trigger (dalam jumlah karakter tambahan dari trigger sebelumnya)
+    TRIGGER_GAP_MIN = 85
+    TRIGGER_GAP_MAX = 250
 
     def __init__(self):
-        self.selected_twists: list[str] = random.sample(
-            self.AVAILABLE_TWISTS, self.REQUIRED_TWISTS
-        )
         self.completed_twists: int = 0
 
-        # Trigger threshold (jumlah karakter) — disembunyikan dari console di produksi
-        self._trigger_points: list[int] = [
-            random.randint(85, 100),
-            random.randint(200, 250),
-            random.randint(399, 500),
-        ]
+        self._current_twist: str = random.choice(self.AVAILABLE_TWISTS)
+        self._next_trigger_point: int = self._roll_trigger_point(base=0)
+
+        print(f"[TwistManager] Twist pertama: {self._current_twist}")
+        print(f"[TwistManager] Trigger point: {self._next_trigger_point}")
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _roll_trigger_point(self, base: int) -> int:
+        gap = random.randint(self.TRIGGER_GAP_MIN, self.TRIGGER_GAP_MAX)
+        return base + gap
 
     # ------------------------------------------------------------------
     # Query helpers
     # ------------------------------------------------------------------
 
-    def get_current_twist(self) -> str | None:
-        """Nama twist yang sedang aktif, atau None jika semua sudah selesai."""
-        if self.completed_twists < len(self.selected_twists):
-            return self.selected_twists[self.completed_twists]
-        return None
+    def get_current_twist(self) -> str:
+        return self._current_twist
 
     def get_current_objective(self) -> str:
-        twist = self.get_current_twist()
-        return self.OBJECTIVES.get(twist, "")
-
-    def all_completed(self) -> bool:
-        return self.completed_twists >= self.REQUIRED_TWISTS
+        return self.OBJECTIVES.get(self._current_twist, "")
 
     def should_trigger_twist(self, character_count: int) -> bool:
-        if self.all_completed():
-            return False
-        next_trigger = self._trigger_points[self.completed_twists]
-        return character_count >= next_trigger
+        return character_count >= self._next_trigger_point
 
     # ------------------------------------------------------------------
     # State mutation
     # ------------------------------------------------------------------
 
-    def complete_current_twist(self) -> None:
+    def complete_current_twist(self, character_count: int = 0) -> None:
+        """
+        Dipanggil saat twist selesai. Menambah counter, lalu langsung
+        menyiapkan twist & trigger point berikutnya (looping).
+        """
         self.completed_twists += 1
 
+        self._current_twist = random.choice(self.AVAILABLE_TWISTS)
+        self._next_trigger_point = self._roll_trigger_point(base=character_count)
+
+        print(f"[TwistManager] Twist selesai. Total selesai: {self.completed_twists}")
+        print(f"[TwistManager] Twist berikutnya: {self._current_twist}")
+        print(f"[TwistManager] Trigger point berikutnya: {self._next_trigger_point}")
